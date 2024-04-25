@@ -1,0 +1,98 @@
+---
+title: "PSYR6003-Assignment4"
+format: html
+editor: visual
+---
+
+## PSYR 6003 - Assignment 4
+
+```{r}
+#Load all needed packages
+library(haven)
+library(tidyverse)
+library(flexplot)
+library(lme4)
+library(lmerTest)
+
+#Putting everything into a dataset
+a4 <- read_sav("P6003.A4.sav")
+view(a4)
+
+#Cleaning the data
+a4.clean <- dplyr::select(a4, id, day, swl, tipm.E, tipm.N)
+view(a4.clean)
+```
+
+Preliminary Data and Descriptive Statistics
+
+```{r}
+#Univariate Distribution
+flexplot(swl~1, data=a4.clean)
+flexplot(tipm.E~1, data=a4.clean)
+flexplot(tipm.N~1, data=a4.clean)
+
+#Descriptive Statistics
+summary(a4.clean)
+
+sd(a4.clean$swl, na.rm=T)
+sd(a4.clean$tipm.E, na.rm=T)
+sd(a4.clean$tipm.N, na.rm=T)
+
+#Bivariate Correlations (FIGURE OUT WHY VALUES MESSED UP)
+cor(a4.clean)
+
+#Just for fun, why *not* a table?
+library(apaTables)
+table1 = apa.cor.table(a4.clean, table.number=1)
+print(table1)
+```
+
+Model Testing and Assumptions
+
+```{r}
+#We need to make several models to see the best fitting one
+base <- lmer(swl~1+(1|id), data=a4.clean)
+summary(base)
+
+#Compute ICC:
+icc(base)
+
+#NESTED MODEL TESTING OF VARIABLES
+
+#1st Variable Addition
+fixed_E <- lmer(swl~tipm.E+(1|id), REML = F, data=a4.clean)
+summary(fixed_E)
+random_E <- lmer(swl~tipm.E+(tipm.E|id), REML = F, data=a4.clean)
+summary(random_E)
+
+#Compare model
+model.comparison(fixed_E, random_E)
+
+#We know now that the random extraversion seems to work better in the case of this model. We like that. Let's move on.
+
+#2nd Variable Addition
+fixed_N <- lmer(swl~tipm.N+tipm.E+(tipm.E|id), REML = F, data=a4.clean)
+summary(fixed_N)
+random_N <- lmer(swl~tipm.N+tipm.E+(tipm.N+tipm.E|id), REML = F, data=a4.clean)
+summary(random_N)
+
+#Compare model
+model.comparison(fixed_N, random_N)
+
+#Yay, we have our completed model (probably), which shows us that the random model for ID is better! That means we'll be using "random_N"
+```
+
+```{r}
+#We visualizing and diagnosing in this house now
+visualize(random_N, plot="model")
+
+#Diagnostics 
+visualize(random_N, plot="residuals")
+#Okay, the assumptions of this model are kinda awesome. No real problems at all, which is pretty great so I don't have to correct them 
+
+#We need "the stats"
+summary(random_N)
+confint(random_N) #for that swell 95% CI
+library(performance) #for that sweet R2
+r2(random_N)
+```
